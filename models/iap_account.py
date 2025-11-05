@@ -6,7 +6,7 @@ import requests
 import hashlib
 import hmac
 import base64
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode
 
 _logger = logging.getLogger(__name__)
 
@@ -37,16 +37,15 @@ class IapAccount(models.Model):
     def _get_sms_account(self):
         """Get Zadarma account for SMS if configured."""
         zadarma_account = self.search([
-            ('service', '=', 'sms'),
+            ('provider', '=', 'sms_api_zadarma'),
             ('zadarma_user_key', '!=', False),
             ('zadarma_secret_key', '!=', False),
         ], limit=1)
 
         if zadarma_account:
-            if zadarma_account.provider != 'sms_api_zadarma':
-                zadarma_account.provider = 'sms_api_zadarma'
             return zadarma_account
 
+        # Fallback to default IAP SMS account
         return self.get("sms")
 
     def zadarma_test_connection(self):
@@ -60,7 +59,8 @@ class IapAccount(models.Model):
             params = {'format': 'json'}
             signature = self._generate_zadarma_signature(method, params)
 
-            url = f"{self.zadarma_base_url}{method}?{urlencode(params, quote_via=quote)}"
+            # Use default urlencode for consistency with signature generation
+            url = f"{self.zadarma_base_url}{method}?{urlencode(params)}"
             headers = {'Authorization': f'{self.zadarma_user_key}:{signature}'}
 
             response = requests.get(url, headers=headers, timeout=10)
@@ -87,9 +87,10 @@ class IapAccount(models.Model):
             raise UserError(_("Connection failed: %s") % str(e))
 
     def _generate_zadarma_signature(self, method, params):
-        """Generate Zadarma API signature (matches PHP SDK)."""
+        """Generate Zadarma API signature (matches Python SDK)."""
         sorted_items = sorted(params.items())
-        params_string = urlencode(sorted_items, quote_via=quote)
+        # Use default urlencode (+ for spaces) to match requests library encoding
+        params_string = urlencode(sorted_items)
         md5_hash = hashlib.md5(params_string.encode()).hexdigest()
         string_to_sign = method + params_string + md5_hash
         hmac_hex = hmac.new(

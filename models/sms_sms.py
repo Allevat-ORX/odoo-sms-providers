@@ -5,7 +5,7 @@ import requests
 import hashlib
 import hmac
 import base64
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode
 
 _logger = logging.getLogger(__name__)
 
@@ -40,36 +40,34 @@ class SmsSms(models.Model):
 
         # Send via Zadarma
         iap_account = self.env['iap.account']._get_sms_account()
-        results = []
 
         for sms in self:
             try:
-                result = sms._send_zadarma_sms(iap_account)
-                results.append(result)
+                success = sms._send_zadarma_sms(iap_account)
+                if success:
+                    sms.write({'state': 'sent'})
+                    _logger.info(f"SMS {sms.id} marked as sent")
+                    if unlink_sent:
+                        sms.unlink()
+                else:
+                    sms.write({'state': 'error', 'failure_type': 'sms_server'})
+                    if unlink_failed:
+                        sms.unlink()
             except Exception as e:
                 _logger.error(f"Zadarma SMS error for {sms.number}: {e}")
-                results.append({
-                    'uuid': sms.uuid,
-                    'state': 'server_error',
-                    'credit': 0
-                })
-
-        self._postprocess_iap_sent_sms(
-            results,
-            unlink_failed=unlink_failed,
-            unlink_sent=unlink_sent
-        )
+                sms.write({'state': 'error', 'failure_type': 'sms_server'})
+                if raise_exception:
+                    raise
+                if unlink_failed:
+                    sms.unlink()
 
     def _send_zadarma_sms(self, iap_account):
-        """Send single SMS via Zadarma API."""
+        """Send single SMS via Zadarma API. Returns True if successful, False otherwise."""
         self.ensure_one()
 
         if not self.number:
-            return {
-                'uuid': self.uuid,
-                'state': 'wrong_number_format',
-                'credit': 0
-            }
+            _logger.error(f"SMS {self.id}: No phone number provided")
+            return False
 
         method = "/v1/sms/send/"
         params = {
@@ -91,31 +89,15 @@ class SmsSms(models.Model):
 
             if data.get('status') == 'success':
                 _logger.info(f"SMS sent successfully to {self.number}")
-                return {
-                    'uuid': self.uuid,
-                    'state': 'success',
-                    'credit': data.get('messages', 1)
-                }
+                return True
             else:
                 error_msg = data.get('message', 'Unknown error')
                 _logger.error(f"Zadarma API error: {error_msg}")
-                return {
-                    'uuid': self.uuid,
-                    'state': 'server_error',
-                    'credit': 0
-                }
+                return False
 
         except requests.exceptions.Timeout:
-            _logger.error("Zadarma API timeout")
-            return {
-                'uuid': self.uuid,
-                'state': 'server_error',
-                'credit': 0
-            }
+            _logger.error(f"Zadarma API timeout for {self.number}")
+            return False
         except Exception as e:
-            _logger.exception(f"Zadarma SMS exception: {e}")
-            return {
-                'uuid': self.uuid,
-                'state': 'server_error',
-                'credit': 0
-            }
+            _logger.exception(f"Zadarma SMS exception for {self.number}: {e}")
+            return False
