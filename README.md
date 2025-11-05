@@ -1,103 +1,207 @@
-# Zadarma SMS Connector for Odoo 18
+# Odoo 18 SMS Providers - Multi-Provider SMS Integration
 
-Send SMS messages directly from Odoo using Zadarma API.
+Complete SMS integration for Odoo 18 using multiple providers through IAP Alternative Provider framework.
 
-## Features
+## 📦 Available Modules
 
-- ✅ Full integration with Odoo SMS system
-- ✅ Works with all Odoo SMS modules (SMS Marketing, CRM SMS, etc.)
-- ✅ Multi-provider support via IAP Alternative Provider
-- ✅ Secure credential management
-- ✅ Connection testing
-- ✅ Automatic failover to other SMS providers
+### 1. sms_zadarma_v2
+**Zadarma SMS Connector**
+- ✅ Full Zadarma API integration
+- ✅ HMAC-SHA1 signature authentication
+- ✅ Balance checking
+- ✅ Tested and working
 
-## Requirements
+**Credentials needed:**
+- User Key
+- Secret Key
 
-- Odoo 18.0
-- `iap_alternative_provider` module from OCA
-- Zadarma API account with User Key and Secret Key
+**Cost:** ~$0.075 per SMS
 
-## Installation
+### 2. sms_labsmobile
+**LabsMobile SMS Connector**
+- ✅ Full LabsMobile JSON API integration
+- ✅ Basic Auth (username:token)
+- ✅ Balance checking
+- ✅ Cost-effective option
 
-1. Install `iap_alternative_provider`:
+**Credentials needed:**
+- Username (email)
+- API Token
+
+**Cost:** More economical than Zadarma
+
+## 🚀 Quick Start
+
+### Requirements
 ```bash
-# Clone OCA server-tools
+# Clone OCA server-tools for iap_alternative_provider
 git clone -b 18.0 https://github.com/OCA/server-tools.git
 cp -r server-tools/iap_alternative_provider /path/to/odoo/addons/
 ```
 
-2. Install this module:
+### Installation
+
+**Option 1: Zadarma**
 ```bash
-git clone https://github.com/tu-usuario/odoo-zadarma-sms.git
-cp -r odoo-zadarma-sms /path/to/odoo/addons/sms_zadarma
+git clone https://github.com/Allevat-ORX/odoo-zadarma-sms.git
+cp -r odoo-zadarma-sms /path/to/odoo/addons/sms_zadarma_v2
 ```
 
-3. Update apps list in Odoo
-4. Install "Zadarma SMS Connector"
-
-## Configuration
-
-1. Go to **Settings → Technical → IAP → Accounts**
-2. Create a new account or edit existing one
-3. Set:
-   - **Service**: SMS
-   - **Provider**: Zadarma
-   - **Zadarma User Key**: Your API user key
-   - **Zadarma Secret Key**: Your API secret key
-4. Click **Test Connection** to verify
-
-## Usage
-
-Once configured, all SMS sent from Odoo will automatically use Zadarma:
-
-### Send SMS from Contacts
-1. Open a contact with mobile number
-2. Click **Send SMS**
-3. Type message and send
-
-### SMS Marketing
-1. Go to **SMS Marketing**
-2. Create campaign
-3. Messages will be sent via Zadarma
-
-### CRM SMS
-1. Open lead/opportunity
-2. Click **Send SMS**
-3. Message delivered via Zadarma
-
-## Troubleshooting
-
-### SMS not sending
-
-Check logs:
+**Option 2: LabsMobile**
 ```bash
-grep -i zadarma /var/log/odoo/odoo.log
+git clone https://github.com/Allevat-ORX/odoo-labsmobile-sms.git
+cp -r odoo-labsmobile-sms /path/to/odoo/addons/sms_labsmobile
 ```
 
-Common issues:
-- Invalid credentials → Verify User Key and Secret Key
-- No credit → Check balance at https://my.zadarma.com
-- Wrong phone format → Use international format: +1234567890
+**Install in Odoo:**
+1. Update Apps List
+2. Install "iap_alternative_provider"
+3. Install your chosen SMS provider module
+4. Configure credentials in Settings → Technical → IAP → Accounts
 
-## Technical Details
+## 📋 Configuration
 
-- Uses official Zadarma PHP SDK signature method
-- Automatic HMAC-SHA1 signature generation
-- Full compatibility with IAP Alternative Provider framework
-- Supports batch SMS sending
+### For Zadarma:
+```
+Settings → Technical → IAP → Accounts
+- Service: SMS
+- Provider: Zadarma
+- User Key: your_user_key
+- Secret Key: your_secret_key
+- Test Connection → Should show balance
+```
 
-## Credits
+### For LabsMobile:
+```
+Settings → Technical → IAP → Accounts
+- Service: SMS
+- Provider: LabsMobile
+- Username: your_email@domain.com
+- API Token: your_api_token
+- Test Connection → Should show balance
+```
+
+## 🎯 Features
+
+✅ **Multi-Provider Support**
+- Switch between providers easily
+- Automatic failover
+- No code changes needed
+
+✅ **Full Odoo Integration**
+- Works with SMS Marketing
+- Works with CRM SMS
+- Works with any Odoo SMS feature
+- Automatic state tracking (sent/error)
+
+✅ **Production Ready**
+- Tested on Odoo 18
+- Error handling
+- Logging
+- Secure credential storage
+
+## 🏗️ Architecture
+
+Both modules use the same architecture:
+
+```
+iap_alternative_provider (OCA)
+    ↓
+sms_zadarma_v2 / sms_labsmobile
+    ├── models/
+    │   ├── iap_account.py    (Provider registration + credentials)
+    │   └── sms_sms.py         (SMS sending logic)
+    └── views/
+        └── iap_account.xml    (UI for credentials)
+```
+
+**Flow:**
+1. User creates SMS in Odoo (Contact, CRM, Marketing, etc.)
+2. `sms.sms._send()` is called
+3. Module checks if provider is configured
+4. If yes: Use provider API
+5. If no: Use default Odoo IAP
+6. SMS state updated automatically
+
+## 🔧 Troubleshooting
+
+### Zadarma 401 Errors
+- Verify User Key and Secret Key
+- Check signature generation (should use `+` for spaces, not `%20`)
+- Ensure `format=json` parameter is included
+
+### LabsMobile Errors
+- Verify username and API token
+- Check phone number format (should not include `+`)
+- Ensure balance is sufficient
+
+### General Issues
+```bash
+# Check Odoo logs
+tail -f /var/log/odoo/odoo.log | grep -i "zadarma\|labsmobile"
+
+# Verify module installed
+# In Odoo: Apps → search for module name
+```
+
+## 📊 Testing
+
+### Test Connection (UI)
+Settings → Technical → IAP → Accounts → Select account → "Test Connection" button
+
+### Test SMS Send (Python)
+```python
+import xmlrpc.client
+
+url = "https://your-odoo.com"
+db = "your_db"
+username = "admin"
+password = "admin_password"
+
+common = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/common')
+uid = common.authenticate(db, username, password, {})
+models = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/object')
+
+# Create and send SMS
+sms_id = models.execute_kw(db, uid, password,
+    'sms.sms', 'create',
+    [{'number': '+1234567890', 'body': 'Test message'}])
+
+models.execute_kw(db, uid, password,
+    'sms.sms', 'send', [[sms_id]])
+```
+
+## 🔐 Security
+
+- Credentials stored encrypted in Odoo database
+- API tokens never logged
+- HTTPS for all API calls
+- No credentials in code or config files
+
+## 📝 Credits
 
 **Author:** OnRentX - Aleix
 **License:** LGPL-3
 **Website:** https://tramarental.com
 
-Based on the IAP Alternative Provider framework by OCA.
+Based on IAP Alternative Provider framework by OCA.
 
-## Support
+## 🆘 Support
 
-For issues or questions:
-1. Check Odoo logs
-2. Verify Zadarma account has sufficient balance
-3. Ensure phone numbers are in international format
-4. Open an issue on GitHub
+1. Check module logs in Odoo
+2. Verify API credentials in provider dashboard
+3. Test API directly with curl/python
+4. Open issue on GitHub
+
+## 🔗 Links
+
+- **Zadarma API Docs:** https://zadarma.com/en/support/api/
+- **LabsMobile API Docs:** https://apidocs.labsmobile.com/
+- **OCA IAP Alternative Provider:** https://github.com/OCA/server-tools
+- **Odoo SMS Documentation:** https://www.odoo.com/documentation/18.0/developer/reference/backend/mixins.html#sms-mixin
+
+---
+
+**Last Updated:** 2025-11-05
+**Odoo Version:** 18.0
+**Status:** ✅ Production Ready
