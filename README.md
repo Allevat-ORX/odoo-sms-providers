@@ -123,6 +123,26 @@ sms_zadarma_v2 / sms_labsmobile
 5. If no: Use default Odoo IAP
 6. SMS state updated automatically
 
+## ⚠️ Known Issues
+
+### LabsMobile + Mexico
+**Status:** API accepts messages but SMS do not reach Mexican phone numbers
+
+- ✅ API responds successfully (code: 0)
+- ✅ Credits are deducted
+- ❌ SMS never delivered to destination
+- **Possible causes:**
+  - LabsMobile requires specific activation for Mexico
+  - Sender ID registration needed for Mexico
+  - Account verification required for international SMS
+  - Routing issues with Mexican carriers
+
+**Recommendation:** Use **Zadarma** for Mexican numbers (tested and working ✅)
+
+**LabsMobile Support:** Contact LabsMobile support to activate Mexican SMS delivery
+
+---
+
 ## 🔧 Troubleshooting
 
 ### Zadarma 401 Errors
