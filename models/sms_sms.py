@@ -61,6 +61,8 @@ class SmsSms(models.Model):
                 if unlink_failed:
                     sms.unlink()
 
+        return True
+
     def _send_zadarma_sms(self, iap_account):
         """Send single SMS via Zadarma API. Returns True if successful, False otherwise."""
         self.ensure_one()
