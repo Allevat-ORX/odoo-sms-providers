@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_iap_account_form_zadarma" model="ir.ui.view">
+        <field name="name">iap.account.form.zadarma</field>
+        <field name="model">iap.account</field>
+        <field name="inherit_id" ref="iap.iap_account_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='provider']" position="after">
+                <field name="zadarma_user_key" password="True"
+                       attrs="{'invisible': [('provider', '!=', 'sms_api_zadarma')]}"/>
+                <field name="zadarma_secret_key" password="True"
+                       attrs="{'invisible': [('provider', '!=', 'sms_api_zadarma')]}"/>
+                <field name="zadarma_base_url"
+                       attrs="{'invisible': [('provider', '!=', 'sms_api_zadarma')]}"/>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <div attrs="{'invisible': [('provider', '!=', 'sms_api_zadarma')]}">
+                    <button name="zadarma_test_connection"
+                            string="Test Connection"
+                            type="object"
+                            class="btn-primary"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>
