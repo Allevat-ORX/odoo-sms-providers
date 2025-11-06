@@ -6,6 +6,8 @@
         <field name="inherit_id" ref="iap.iap_account_view_form"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='provider']" position="after">
+                <field name="is_default_sms"
+                       invisible="not provider or 'sms_api' not in provider"/>
                 <field name="labsmobile_username" password="True"
                        invisible="provider != 'sms_api_labsmobile'"/>
                 <field name="labsmobile_token" password="True"

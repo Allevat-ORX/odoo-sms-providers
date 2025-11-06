@@ -32,19 +32,35 @@ class IapAccount(models.Model):
         help="LabsMobile API base URL"
     )
 
+    is_default_sms = fields.Boolean(
+        string="Default SMS Provider",
+        default=False,
+        help="Use this provider by default for sending SMS"
+    )
+
     @api.model
     def _get_sms_account(self):
-        """Get LabsMobile account for SMS if configured."""
-        labsmobile_account = self.search([
-            ('provider', '=', 'sms_api_labsmobile'),
-            ('labsmobile_username', '!=', False),
-            ('labsmobile_token', '!=', False),
+        """Get SMS account with priority: 1) Default marked, 2) Lowest ID."""
+        # First, try to get account marked as default
+        default_account = self.search([
+            ('provider', 'like', 'sms_api'),
+            ('is_default_sms', '=', True),
         ], limit=1)
 
-        if labsmobile_account:
-            return labsmobile_account
+        if default_account:
+            _logger.info(f"Using default SMS provider: {default_account.provider} (ID: {default_account.id})")
+            return default_account
 
-        # Fallback to default IAP SMS account
+        # Fallback: get lowest ID (original behavior)
+        fallback_account = self.search([
+            ('provider', 'like', 'sms_api'),
+        ], order='id asc', limit=1)
+
+        if fallback_account:
+            _logger.info(f"Using fallback SMS provider (lowest ID): {fallback_account.provider} (ID: {fallback_account.id})")
+            return fallback_account
+
+        # Last resort: default IAP SMS account
         return self.get("sms")
 
     def labsmobile_test_connection(self):
@@ -95,6 +111,13 @@ class IapAccount(models.Model):
             if vals.get('labsmobile_username') and vals.get('labsmobile_token'):
                 vals['provider'] = 'sms_api_labsmobile'
 
+            # Auto-uncheck other defaults if this one is marked as default
+            if vals.get('is_default_sms'):
+                self.search([
+                    ('provider', 'like', 'sms_api'),
+                    ('is_default_sms', '=', True)
+                ]).write({'is_default_sms': False})
+
         return super().create(vals_list)
 
     def write(self, vals):
@@ -103,5 +126,13 @@ class IapAccount(models.Model):
             for rec in self:
                 if rec.labsmobile_username and rec.labsmobile_token:
                     vals['provider'] = 'sms_api_labsmobile'
+
+        # Auto-uncheck other defaults if this one is marked as default
+        if vals.get('is_default_sms'):
+            self.search([
+                ('provider', 'like', 'sms_api'),
+                ('is_default_sms', '=', True),
+                ('id', 'not in', self.ids)
+            ]).write({'is_default_sms': False})
 
         return super().write(vals)

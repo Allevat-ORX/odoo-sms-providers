@@ -33,19 +33,35 @@ class IapAccount(models.Model):
         help="Zadarma API base URL"
     )
 
+    is_default_sms = fields.Boolean(
+        string="Default SMS Provider",
+        default=False,
+        help="Use this provider by default for sending SMS"
+    )
+
     @api.model
     def _get_sms_account(self):
-        """Get Zadarma account for SMS if configured."""
-        zadarma_account = self.search([
-            ('provider', '=', 'sms_api_zadarma'),
-            ('zadarma_user_key', '!=', False),
-            ('zadarma_secret_key', '!=', False),
+        """Get SMS account with priority: 1) Default marked, 2) Lowest ID."""
+        # First, try to get account marked as default
+        default_account = self.search([
+            ('provider', 'like', 'sms_api'),
+            ('is_default_sms', '=', True),
         ], limit=1)
 
-        if zadarma_account:
-            return zadarma_account
+        if default_account:
+            _logger.info(f"Using default SMS provider: {default_account.provider} (ID: {default_account.id})")
+            return default_account
 
-        # Fallback to default IAP SMS account
+        # Fallback: get lowest ID (original behavior)
+        fallback_account = self.search([
+            ('provider', 'like', 'sms_api'),
+        ], order='id asc', limit=1)
+
+        if fallback_account:
+            _logger.info(f"Using fallback SMS provider (lowest ID): {fallback_account.provider} (ID: {fallback_account.id})")
+            return fallback_account
+
+        # Last resort: default IAP SMS account
         return self.get("sms")
 
     def zadarma_test_connection(self):
@@ -110,6 +126,13 @@ class IapAccount(models.Model):
             if vals.get('zadarma_user_key') and vals.get('zadarma_secret_key'):
                 vals['provider'] = 'sms_api_zadarma'
 
+            # Auto-uncheck other defaults if this one is marked as default
+            if vals.get('is_default_sms'):
+                self.search([
+                    ('provider', 'like', 'sms_api'),
+                    ('is_default_sms', '=', True)
+                ]).write({'is_default_sms': False})
+
         return super().create(vals_list)
 
     def write(self, vals):
@@ -118,5 +141,13 @@ class IapAccount(models.Model):
             for rec in self:
                 if rec.zadarma_user_key and rec.zadarma_secret_key:
                     vals['provider'] = 'sms_api_zadarma'
+
+        # Auto-uncheck other defaults if this one is marked as default
+        if vals.get('is_default_sms'):
+            self.search([
+                ('provider', 'like', 'sms_api'),
+                ('is_default_sms', '=', True),
+                ('id', 'not in', self.ids)
+            ]).write({'is_default_sms': False})
 
         return super().write(vals)
